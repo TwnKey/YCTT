@@ -2,7 +2,7 @@
   <img src="https://github.com/TwnKey/YCTT/assets/69110695/0af45f20-7c04-4145-9f74-af612947d4bc" width="500" height=auto>
 </p>
 
-# Translation projects for Ys Chronicles / Ys编年史的翻译项目
+# Translation projects for Ys Chronicles / Ys Chronicles的翻译项目
 
 - [Spanish/西班牙语](https://tradusquare.es/proyectos/ys1-chronicles/)
 
