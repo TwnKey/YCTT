@@ -498,7 +498,7 @@ void Writer::InsertTL(std::string path_original_file) {
 
 void Writer::WriteBinaryFile() {
 
-	std::ofstream fout("ys2_libre.ys2_TLed", std::ios::out | std::ios::binary);
+	std::ofstream fout("ys2_libre.ys2", std::ios::out | std::ios::binary);
 	fout.write((const char*)this->content.data(), this->content.size() * sizeof(uint8_t));
 	fout.close();
 	/*for (int c : used_characters)
