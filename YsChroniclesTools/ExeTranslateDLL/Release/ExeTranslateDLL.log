@@ -1,0 +1,23 @@
+﻿  Console.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\Console.cpp(58,10): warning C4244: 'initialisation' : conversion de 'float' en 'int', perte possible de données
+  dinput8.cpp
+  Disassembler.cpp
+  Patch.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\Patch.cpp(33,16): warning C4101: 'sizeBytes' : variable locale non référencée
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\Patch.cpp(80,36): warning C4244: '=' : conversion de 'float' en 'size_t', perte possible de données
+  StringPatcher.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\StringPatcher.cpp(65,31): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\StringPatcher.cpp(82,28): warning C4018: '>=' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\StringPatcher.cpp(89,30): warning C4018: '>=' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\StringPatcher.cpp(110,25): warning C4018: '<' : incompatibilité signed/unsigned
+  Utilities.cpp
+     Création de la bibliothèque C:\Users\Administrator\source\repos\YsChroniclesTools\Release\dinput8.lib et de l'objet C:\Users\Administrator\source\repos\YsChroniclesTools\Release\dinput8.exp
+LINK : warning LNK4098: conflit entre la bibliothèque par défaut 'LIBCMT' et les autres bibliothèques ; utilisez /NODEFAULTLIB:library
+  Génération de code en cours
+  Previous IPDB not found, fall back to full compilation.
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\StringPatcher.cpp(382): warning C4715: 'StringPatcher::ReadStringCSV' : les chemins de contrôle ne retournent pas tous une valeur
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\StringPatcher.cpp(294): warning C4715: 'StringPatcher::find_data_from_addr' : les chemins de contrôle ne retournent pas tous une valeur
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\Patch.cpp(170): warning C4715: 'Patch::CheckGame' : les chemins de contrôle ne retournent pas tous une valeur
+  All 3391 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Fin de la génération du code
+  ExeTranslateDLL.vcxproj -> C:\Users\Administrator\source\repos\YsChroniclesTools\Release\dinput8.dll

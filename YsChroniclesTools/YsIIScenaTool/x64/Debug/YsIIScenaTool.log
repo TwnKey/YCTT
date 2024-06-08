@@ -1,0 +1,15 @@
+﻿  Writer.cpp
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\include\unicode\localpointer.h(561,26): error C3533: un paramètre ne peut pas avoir un type contenant 'auto'
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\include\unicode\localpointer.h(561,26): message : 'auto' dans les paramètres de modèle non-type nécessite au moins '/std:c++17'
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\include\unicode\uenum.h(69,1): error C2975: 'closeFunction' : argument template non valide pour 'icu_75::internal::LocalOpenPointer', expression constante évaluée au moment de la compilation attendue
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\include\unicode\localpointer.h(561): message : voir la déclaration de 'closeFunction'
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\include\unicode\ucnv.h(597,1): error C2975: 'closeFunction' : argument template non valide pour 'icu_75::internal::LocalOpenPointer', expression constante évaluée au moment de la compilation attendue
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\include\unicode\localpointer.h(561): message : voir la déclaration de 'closeFunction'
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\Writer.cpp(180,33): warning C4267: 'initialisation' : conversion de 'size_t' en 'uint32_t', perte possible de données
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\Writer.cpp(395,61): warning C4267: '=' : conversion de 'size_t' en 'uint32_t', perte possible de données
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\Writer.cpp(419,61): warning C4267: '=' : conversion de 'size_t' en 'uint32_t', perte possible de données
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\Writer.cpp(428,46): warning C4267: 'initialisation' : conversion de 'size_t' en 'uint32_t', perte possible de données
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\Writer.cpp(462,69): warning C4267: 'initialisation' : conversion de 'size_t' en 'uint32_t', perte possible de données
+C:\Users\Administrator\source\repos\THL_translation\YsIIScenaToolnew\YsIIScenaTool\Writer.cpp(463,43): warning C4267: 'initialisation' : conversion de 'size_t' en 'uint32_t', perte possible de données
+  YsIIScenaTool.cpp
+  Génération de code en cours...

@@ -1,0 +1,19 @@
+﻿  Parser.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Parser.cpp(22,20): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Parser.cpp(87,27): warning C4838: la conversion de 'int' en 'uint32_t' requiert une conversion restrictive
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Parser.cpp(363,52): warning C4554: '>>' : vérifiez si la priorité des opérateurs n'est pas une cause possible d'erreur ; utilisez des parenthèses pour rendre les priorités plus claires
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Parser.cpp(130,12): warning C4101: 'orig_addr' : variable locale non référencée
+  Translation.cpp
+  Writer.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Writer.cpp(188,20): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Writer.cpp(267,38): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Writer.cpp(269,22): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Writer.cpp(311,25): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Writer.cpp(374,35): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsIIScenaTool\Writer.cpp(381,35): warning C4018: '<' : incompatibilité signed/unsigned
+  YsIIScenaTool.cpp
+  Génération de code en cours
+  Previous IPDB not found, fall back to full compilation.
+  All 1117 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Fin de la génération du code
+  YsIIScenaTool.vcxproj -> C:\Users\Administrator\source\repos\YsChroniclesTools\Release\YsIIScenaTool.exe

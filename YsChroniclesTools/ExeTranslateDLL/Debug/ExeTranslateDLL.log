@@ -1,0 +1,13 @@
+﻿  Console.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\Console.cpp(73,1): fatal error C1010: fin de fichier inattendue lors de la recherche d'un en-tête précompilé. N'auriez-vous pas oublié d'ajouter '#include "pch.h"' à votre source ?
+  dinput8.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\dinput8.cpp(106,1): fatal error C1010: fin de fichier inattendue lors de la recherche d'un en-tête précompilé. N'auriez-vous pas oublié d'ajouter '#include "pch.h"' à votre source ?
+  Disassembler.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\Disassembler.cpp(166,1): fatal error C1010: fin de fichier inattendue lors de la recherche d'un en-tête précompilé. N'auriez-vous pas oublié d'ajouter '#include "pch.h"' à votre source ?
+  Patch.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\Patch\Patch.cpp(273,1): fatal error C1010: fin de fichier inattendue lors de la recherche d'un en-tête précompilé. N'auriez-vous pas oublié d'ajouter '#include "pch.h"' à votre source ?
+  StringPatcher.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\StringPatcher.cpp(383,1): fatal error C1010: fin de fichier inattendue lors de la recherche d'un en-tête précompilé. N'auriez-vous pas oublié d'ajouter '#include "pch.h"' à votre source ?
+  Utilities.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\ExeTranslateDLL\Utilities\Utilities.cpp(331,1): fatal error C1010: fin de fichier inattendue lors de la recherche d'un en-tête précompilé. N'auriez-vous pas oublié d'ajouter '#include "pch.h"' à votre source ?
+  Génération de code en cours...

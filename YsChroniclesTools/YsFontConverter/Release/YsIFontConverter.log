@@ -1,0 +1,16 @@
+﻿  FontConverter.cpp
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(84,35): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(87,29): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(91,27): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(124,42): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(138,24): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(176,10): warning C4101: 'trail_byte' : variable locale non référencée
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(439,12): warning C4018: '>=' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(452,12): warning C4018: '>=' : incompatibilité signed/unsigned
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(386,10): warning C4101: 'p' : variable locale non référencée
+C:\Users\Administrator\source\repos\YsChroniclesTools\YsChroniclesTools\YsFontConverter\FontConverter.cpp(386,12): warning C4101: 'q' : variable locale non référencée
+  Génération de code en cours
+  Previous IPDB not found, fall back to full compilation.
+  All 1172 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Fin de la génération du code
+  YsIFontConverter.vcxproj -> C:\Users\Administrator\source\repos\YsChroniclesTools\Release\YsIFontConverter.exe
