@@ -89,7 +89,7 @@ size_t calculateTotalSize(std::vector<unsigned char>& buffer, int start_address)
 			compteur_de_pixels += empty_bytes_count;
 			current_idx++;
 			if (compteur_de_pixels < line_number) {
-				//il y a encore des pixels à lire, non noirs cette fois
+				//il y a encore des pixels ?lire, non noirs cette fois
 				size_t non_empty_pixels_count = buffer[start_address + header_size + total_info_section_size + current_idx];
 				size_t frac = non_empty_pixels_count / 2;
 				size_t nb_bytes_to_skip = (non_empty_pixels_count % 2 == 0) ? frac : frac + 1;
@@ -174,7 +174,7 @@ uint32_t get_sjis_from_index(uint32_t index) {
 
 	uint8_t lead_byte;
 	uint8_t trail_byte;
-	if (row > (0xA0 - 0x81))
+	if (row >= (0xA0 - 0x81))
 		lead_byte = 0xE0 + (row - (0xA0 - 0x81));
 	else 
 		lead_byte = 0x81 + row;
@@ -183,7 +183,6 @@ uint32_t get_sjis_from_index(uint32_t index) {
 		cell++;
 	}
 	cell += 0x40;
-
 	return (lead_byte << 8) | cell;
 }
 
@@ -699,7 +698,7 @@ int main( int     argc,
 
 		slot = face->glyph;
 
-
+		
 		int code = FT_Get_Char_Index(face, it->utf32);
 		int index = get_index(it->sjis);
 		if (code != 0) {
