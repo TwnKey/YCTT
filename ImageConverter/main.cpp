@@ -64,12 +64,13 @@ int main(int argc, char* argv[])
             std::string palFilePath = secondArg;
 
             ImageConverter converter(palFilePath, filePath);
+            if (!converter.readPalette()) {
+                std::cerr << "Error: Failed to read the PAL file " << palFilePath << std::endl;
+                return 1;
+            }
             if (firstArg.substr(firstArg.find_last_of(".")) == ".SKI") {
                 // Handle SKI file
-                if (!converter.readPalette()) {
-                    std::cerr << "Error: Failed to read the PAL file " << palFilePath << std::endl;
-                    return 1;
-                }
+                
                 if (!converter.parseSKI(filePath)) {
                     std::cerr << "Error: Failed to parse SKI file " << filePath << std::endl;
                     return 1;

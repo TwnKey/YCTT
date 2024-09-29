@@ -3,8 +3,118 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 #include <filesystem> // For extracting filename from path
-namespace fs = std::filesystem;
 
+
+#include "ImageConverter.h"
+#include <vector>
+#include <fstream>
+
+std::string ImageConverter::stripExtension(const std::string& filename) {
+    size_t lastDot = filename.find_last_of(".");
+    if (lastDot == std::string::npos) {
+        return filename; // No extension found, return the original filename
+    }
+    return filename.substr(0, lastDot); // Strip the extension
+}
+
+int ImageConverter::selectPalette(int maxIndex) {
+    // Iterate through all the palettes and find one that has enough colors
+    for (int i = 0; i < palettes.size(); ++i) {
+        if (palettes[i].size() > maxIndex) {
+            return i; // Return the index of the first suitable palette
+        }
+    }
+
+    // If no palette is found that can handle maxIndex, return an error code
+    return -1; // Error: No suitable palette found
+}
+void ImageConverter::createBMP(const std::vector<uint8_t>& frameData, const std::string& outputFileName, int width, int height) {
+    // Find the maximum index value in frameData
+    int maxIndex = 0;
+    for (uint8_t index : frameData) {
+        if (index > maxIndex) {
+            maxIndex = index;
+        }
+    }
+
+    // Select an appropriate palette
+    int paletteIndex = selectPalette(maxIndex);
+    if (paletteIndex == -1) {
+        std::cerr << "Error: No suitable palette found." << std::endl;
+        return;
+    }
+
+    // Get the selected palette
+    const auto& selectedPalette = palettes[paletteIndex];
+
+    // BMP file header size
+    const int headerSize = 54; // 14 bytes for file header + 40 bytes for info header
+    const int rowSize = (width * 3 + 3) & (~3); // Ensure row size is a multiple of 4
+    const int dataSize = rowSize * height; // Total size of pixel data
+    const int fileSize = headerSize + dataSize; // Total file size
+
+    // Create the BMP header
+    uint8_t header[headerSize] = {
+        'B', 'M', // Signature
+        static_cast<uint8_t>(fileSize), static_cast<uint8_t>(fileSize >> 8), static_cast<uint8_t>(fileSize >> 16), static_cast<uint8_t>(fileSize >> 24), // File size
+        0, 0, 0, 0, // Reserved
+        headerSize, 0, 0, 0, // Offset to pixel data
+        40, 0, 0, 0, // Size of info header
+        static_cast<uint8_t>(width), static_cast<uint8_t>(width >> 8), static_cast<uint8_t>(width >> 16), static_cast<uint8_t>(width >> 24), // Width
+        static_cast<uint8_t>(height), static_cast<uint8_t>(height >> 8), static_cast<uint8_t>(height >> 16), static_cast<uint8_t>(height >> 24), // Height
+        1, 0, // Color planes
+        24, 0, // Bits per pixel
+        0, 0, 0, 0, // Compression
+        static_cast<uint8_t>(dataSize), static_cast<uint8_t>(dataSize >> 8), static_cast<uint8_t>(dataSize >> 16), static_cast<uint8_t>(dataSize >> 24), // Size of raw bitmap data
+        0, 0, 0, 0, // Horizontal resolution
+        0, 0, 0, 0, // Vertical resolution
+        0, 0, 0, 0, // Number of colors
+        0, 0, 0, 0  // Important colors
+    };
+
+    // Open the output BMP file
+    std::ofstream bmpFile(outputFileName, std::ios::binary);
+    if (!bmpFile.is_open()) {
+        std::cerr << "Error: Unable to open BMP file " << outputFileName << std::endl;
+        return;
+    }
+
+    // Write the BMP header
+    bmpFile.write(reinterpret_cast<char*>(header), headerSize);
+
+    // Write pixel data
+    for (int y = height - 1; y >= 0; --y) { // BMP stores pixels bottom to top
+        for (int x = 0; x < width; ++x) {
+            // Get the pixel index
+            uint8_t index = frameData[y * width + x];
+
+            // Check if the index is within the bounds of the selected palette
+            if (index < selectedPalette.size()) {
+                // Map the index to the corresponding RGB value using the selected palette
+                Color color = selectedPalette[index];
+                bmpFile.put(color.b); // Blue
+                bmpFile.put(color.g); // Green
+                bmpFile.put(color.r); // Red
+            }
+            else {
+                // Handle out-of-bounds index (default to black or any other color)
+                bmpFile.put(0); // Blue
+                bmpFile.put(0); // Green
+                bmpFile.put(0); // Red
+            }
+        }
+
+        // Row padding
+        for (int p = 0; p < rowSize - (width * 3); ++p) {
+            bmpFile.put(0); // Pad the row with zeroes
+        }
+    }
+
+    bmpFile.close();
+}
+
+
+namespace fs = std::filesystem;
 ImageConverter::ImageConverter(const std::string& paletteFileName, const std::string& bitmapFileName)
     : palFileName(paletteFileName), bmpFileName(bitmapFileName) {}
 
@@ -20,6 +130,7 @@ uint32_t readInt(std::ifstream& file) {
     file.read(reinterpret_cast<char*>(&value), sizeof(value));
     return value;
 }
+
 bool ImageConverter::parseSKI(const std::string& skiFileName) {
     // Extract the base name (without extension) of the SKI file
     std::filesystem::path skiPath(skiFileName);
@@ -126,27 +237,17 @@ bool ImageConverter::parseSKI(const std::string& skiFileName) {
             current_index += width;  // Move to the next row
         }
 
-        // Output the frame data as a PNG
-        std::string outputPngFileName = outputDir.string() + "/frame_" + std::to_string(frameIndex) + ".png";
-        createPNG(frameData, outputPngFileName, width, height); // Assuming createPNG handles the image creation
-
-        //std::cout << "Parsed and saved frame " << frameIndex << " as PNG: " << outputPngFileName << std::endl;
+        // Output the frame data as a BMP
+        std::string outputBmpFileName = outputDir.string() + "/frame_" + std::to_string(frameIndex) + ".bmp";
+        createBMP(frameData, outputBmpFileName, width, height); // Create BMP instead of PNG
     }
 
     skiFile.close();
     return true;
 }
 
-
-
 // Helper function to strip the extension and get the filename without it
-std::string stripExtension(const std::string& filename) {
-    size_t lastDot = filename.find_last_of(".");
-    if (lastDot == std::string::npos) {
-        return filename; // No extension found, return the original filename
-    }
-    return filename.substr(0, lastDot); // Strip the extension
-}
+
 
 // Helper function to extract the filename from a full path
 std::string getFileNameWithoutPath(const std::string& filepath) {
@@ -195,95 +296,15 @@ bool ImageConverter::readPalette() {
     palFile.close();
     return true;
 }
-void ImageConverter::createPNG(const std::vector<uint8_t>& frameData, const std::string& outputFileName, int width, int height) {
-    if (frameData.size() == 0) {
-        std::ofstream file(outputFileName);
-        file.close();
-        return;
-    
-    }
-    uint8_t maxIndex = *std::max_element(frameData.begin(), frameData.end());
-    std::vector<Color> palette;
-
-    // Find the appropriate palette based on the max index
-    for (auto p : palettes) {
-        if (p.size() > maxIndex) {
-            palette = p;
-            break;
-        }
-    }
-
-    if (palette.empty()) {
-        std::cerr << "Error: Palette is empty, cannot create PNG." << std::endl;
-        return;
-    }
-
-    // Create an RGB image from the indexed data (assuming 3 channels: R, G, B)
-    std::vector<uint8_t> rgbImage(width * height * 3);
-
-    for (int i = 0; i < frameData.size(); i++) {
-        uint8_t index = frameData[i];
-
-        // Handle palette lookup. Assuming the 'index' directly corresponds to a color in the palette.
-        if (index >= palette.size()) {
-            std::cerr << "Error: Invalid palette index at pixel " << i << std::endl;
-            continue;
-        }
-
-        // Fill the RGB image with the palette color corresponding to the pixel index
-        rgbImage[i * 3 + 0] = palette[index].r;  // Red
-        rgbImage[i * 3 + 1] = palette[index].g;  // Green
-        rgbImage[i * 3 + 2] = palette[index].b;  // Blue
-    }
-
-    // Write the main image to a PNG file using stbi_write_png
-    if (stbi_write_png(outputFileName.c_str(), width, height, 3, rgbImage.data(), width * 3) == 0) {
-        std::cerr << "Error: Failed to write PNG file " << outputFileName << std::endl;
-    }
-    else {
-        //std::cout << "PNG file created successfully: " << outputFileName << std::endl;
-    }
-
-    // Now let's create a PNG to show the palette
-    std::string paletteFileName = outputFileName.substr(0, outputFileName.find_last_of(".")) + "_palette.png";
-
-    // Determine the dimensions for the palette image. For simplicity, let's make a single row.
-    int paletteWidth = static_cast<int>(palette.size());
-    int paletteHeight = 20;  // Fixed height for the palette display
-
-    std::vector<uint8_t> paletteImage(paletteWidth * paletteHeight * 3);
-
-    // Fill the palette image
-    for (int y = 0; y < paletteHeight; ++y) {
-        for (int x = 0; x < paletteWidth; ++x) {
-            if (x < palette.size()) {
-                const Color& color = palette[x];
-                int index = (y * paletteWidth + x) * 3;
-                paletteImage[index + 0] = color.r;  // Red
-                paletteImage[index + 1] = color.g;  // Green
-                paletteImage[index + 2] = color.b;  // Blue
-            }
-        }
-    }
-
-    // Write the palette image to a PNG file
-    if (stbi_write_png(paletteFileName.c_str(), paletteWidth, paletteHeight, 3, paletteImage.data(), paletteWidth * 3) == 0) {
-        std::cerr << "Error: Failed to write palette PNG file " << paletteFileName << std::endl;
-    }
-    else {
-        //std::cout << "Palette PNG file created successfully: " << paletteFileName << std::endl;
-    }
-}
 bool ImageConverter::convert(const std::string& FileName) {
     // Open the .256 file for reading
     std::ifstream inputFile(FileName, std::ios::binary);
     if (!inputFile.is_open()) {
-        std::cerr << "Error: Could not open .256 file " << bmpFileName << std::endl;
+        std::cerr << "Error: Could not open .256 file " << FileName << std::endl;
         return false;
     }
 
-    // Read the .256 file header (assumed structure)
-    // Adjust based on your actual file format
+    // Read the .256 file header (assuming width and height are stored)
     inputFile.read(reinterpret_cast<char*>(&width), sizeof(width));
     inputFile.read(reinterpret_cast<char*>(&height), sizeof(height));
 
@@ -294,52 +315,27 @@ bool ImageConverter::convert(const std::string& FileName) {
     // Read pixel indices from the .256 file
     inputFile.read(reinterpret_cast<char*>(indices.data()), totalPixels);
 
-    // Create an RGB image from the indexed data (assuming 3 channels: R, G, B)
-    std::vector<uint8_t> rgbImage(totalPixels * 3);
-
-    // Read the palette
-    readPalette();
-    std::vector<Color> palette;
-    uint8_t maxIndex = *std::max_element(indices.begin(), indices.end());
-    // Find the appropriate palette based on the max index
-    for (auto p : palettes) {
-        if (p.size() > maxIndex) {
-            palette = p;
-            break;
-        }
-    }
-
-    // Fill the RGB image with the palette colors corresponding to the pixel indices
-    for (size_t i = 0; i < totalPixels; ++i) {
-        uint8_t index = indices[i];
-
-        // Check if the index is valid
-        if (index < palette.size()) {
-            rgbImage[i * 3 + 0] = palette[index].r;  // Red
-            rgbImage[i * 3 + 1] = palette[index].g;  // Green
-            rgbImage[i * 3 + 1] = palette[index].b;  // Blue
-        }
-        else {
-            std::cerr << "Error: Invalid palette index at pixel " << i << std::endl;
-            // Fill with a default color (e.g., black) for invalid indices
-            rgbImage[i * 3 + 0] = 0;  // Red
-            rgbImage[i * 3 + 1] = 0;  // Green
-            rgbImage[i * 3 + 2] = 0;  // Blue
-        }
-    }
-
-    // Generate the output PNG filename in the working directory
-    std::string outputPngFileName = fs::path(FileName).stem().string() + ".png"; // Save in current directory
-
-    // Write the image to a PNG file using stbi_write_png
-    if (stbi_write_png(outputPngFileName.c_str(), width, height, 3, rgbImage.data(), width * 3) == 0) {
-        std::cerr << "Error: Failed to write PNG file " << outputPngFileName << std::endl;
+    // Ensure palettes are available (assume readPalette was called earlier)
+    if (palettes.empty()) {
+        std::cerr << "Error: No palettes available. Ensure readPalette() was called before convert()." << std::endl;
         inputFile.close();
         return false;
     }
-    else {
-        //std::cout << "PNG file created successfully in the working directory: " << outputPngFileName << std::endl;
+
+    // Select an appropriate palette based on the max index in frameData
+    int maxIndex = *std::max_element(indices.begin(), indices.end());
+    int paletteIndex = selectPalette(maxIndex);
+    if (paletteIndex == -1) {
+        std::cerr << "Error: No suitable palette found." << std::endl;
+        inputFile.close();
+        return false;
     }
+
+    // Generate the output BMP filename in the working directory
+    std::string outputBmpFileName = stripExtension(FileName) + ".bmp"; // Save in current directory
+
+    // Reuse createBMP to generate BMP from the indices
+    createBMP(indices, outputBmpFileName, width, height);
 
     inputFile.close();
     return true;  // Return true if parsing and conversion is successful

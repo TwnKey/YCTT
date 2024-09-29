@@ -1,4 +1,3 @@
-// ImageConverter.h
 #ifndef IMAGE_CONVERTER_H
 #define IMAGE_CONVERTER_H
 
@@ -17,12 +16,12 @@ class ImageConverter {
 public:
     ImageConverter(const std::string& paletteFileName = "", const std::string& bitmapFileName = "");
     bool parseSKI(const std::string& skiFileName);
-    void createPNG(const std::vector<uint8_t>& frameData, const std::string& outputFileName, int width, int height);
-
+    void createBMP(const std::vector<uint8_t>& frameData, const std::string& outputFileName, int width, int height);
     bool readPalette(); // Method to read the palette
     bool convert(const std::string& FileName); // Method for conversion logic
 
     const std::vector<std::vector<Color>>& getPalettes() const { return palettes; } // Getter for palettes
+    int selectPalette(int maxIndex); // Method to select the appropriate palette
 
 private:
     std::vector<std::vector<Color>> palettes; // Store multiple palettes
