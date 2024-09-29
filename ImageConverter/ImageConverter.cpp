@@ -2,133 +2,140 @@
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
-#include <filesystem> // For extracting filename from path
-
-
-#include "ImageConverter.h"
-#include <vector>
+#include <filesystem>
+#include <iostream>
 #include <fstream>
 
+// Constructor implementation
+ImageConverter::ImageConverter(const std::string& paletteFileName, const std::string& bitmapFileName)
+    : palFileName(paletteFileName), bmpFileName(bitmapFileName) {
+    // Load palettes if the palette file name is provided
+    if (!palFileName.empty()) {
+        loadPalettesFromPALfile();
+    }
+}
+
+// Helper to strip the file extension
 std::string ImageConverter::stripExtension(const std::string& filename) {
     size_t lastDot = filename.find_last_of(".");
-    if (lastDot == std::string::npos) {
-        return filename; // No extension found, return the original filename
-    }
-    return filename.substr(0, lastDot); // Strip the extension
+    return (lastDot == std::string::npos) ? filename : filename.substr(0, lastDot);
 }
 
-int ImageConverter::selectPalette(int maxIndex) {
-    // Iterate through all the palettes and find one that has enough colors
-    for (int i = 0; i < palettes.size(); ++i) {
-        if (palettes[i].size() > maxIndex) {
-            return i; // Return the index of the first suitable palette
-        }
-    }
+// Helper function to extract the filename from a full path
+std::string ImageConverter::getFileNameWithoutPath(const std::string& filepath) {
+    std::filesystem::path pathObj(filepath);
+    return pathObj.stem().string();
+}
 
-    // If no palette is found that can handle maxIndex, return an error code
+// Function to select the appropriate palette based on maxIndex
+/* 3 possibilit¨¦s : 
+1 - On mentionne DIRECTEMENT l'id de la palette dans la commande, donc pas d'ambiguit¨¦
+2 - On mentionne allp : on s¨¦lectionnera toutes les palettes
+3 - On mentionne rien : on prend une qui fit ¨¤ 100%, donc celle qui a le plus de couleurs */
+int ImageConverter::selectPalette(int index, bool allP) {
+
+    selectedPalettes.clear();
+    if (allP) {
+
+        selectedPalettes = PALfile;
+        for (int i = 0; i < selectedPalettes.size(); i++)
+            palettes_id.push_back(i);
+        
+    }
+    else {
+        if (index == -1) {
+            int maxIndex = 0;
+            for (int i = 0; i < PALfile.size(); ++i) {
+                if (PALfile[i].size() > maxIndex) {
+                    maxIndex = PALfile[i].size();
+                    if (selectedPalettes.empty()) {
+                        selectedPalettes.push_back(PALfile[i]); 
+                        palettes_id.push_back(i);
+                    }
+                    else {
+                        selectedPalettes[0] = PALfile[i];
+                        palettes_id[0] = i;
+                    }
+                }
+            }
+        
+        }
+        else {
+            selectedPalettes.push_back(PALfile[index]);
+            palettes_id.push_back(index);
+        }
+    
+    }
+    
     return -1; // Error: No suitable palette found
 }
-void ImageConverter::createBMP(const std::vector<uint8_t>& frameData, const std::string& outputFileName, int width, int height) {
-    // Find the maximum index value in frameData
-    int maxIndex = 0;
-    for (uint8_t index : frameData) {
-        if (index > maxIndex) {
-            maxIndex = index;
-        }
-    }
 
-    // Select an appropriate palette
-    int paletteIndex = selectPalette(maxIndex);
-    if (paletteIndex == -1) {
-        std::cerr << "Error: No suitable palette found." << std::endl;
-        return;
-    }
-
-    // Get the selected palette
-    const auto& selectedPalette = palettes[paletteIndex];
-
-    // BMP file header size
-    const int headerSize = 54; // 14 bytes for file header + 40 bytes for info header
-    const int rowSize = (width * 3 + 3) & (~3); // Ensure row size is a multiple of 4
-    const int dataSize = rowSize * height; // Total size of pixel data
+// The existing createBMP method (unchanged)
+void ImageConverter::createBMP(const frameData& frameData, std::string& outputFileName, std::vector<Color> palette) {
+    const int headerSize = 54;  // BMP header size
+    const int bitsPerPixel = 32; // Use 32 bits per pixel for transparency
+    const int rowSize = (frameData.width * bitsPerPixel / 8 + 3) & (~3); // Row size must be a multiple of 4
+    const int dataSize = rowSize * frameData.height; // Total size of pixel data
     const int fileSize = headerSize + dataSize; // Total file size
 
-    // Create the BMP header
+    // BMP header initialization
     uint8_t header[headerSize] = {
-        'B', 'M', // Signature
-        static_cast<uint8_t>(fileSize), static_cast<uint8_t>(fileSize >> 8), static_cast<uint8_t>(fileSize >> 16), static_cast<uint8_t>(fileSize >> 24), // File size
+        'B', 'M',  // BMP signature
+        static_cast<uint8_t>(fileSize), static_cast<uint8_t>(fileSize >> 8),
+        static_cast<uint8_t>(fileSize >> 16), static_cast<uint8_t>(fileSize >> 24),
         0, 0, 0, 0, // Reserved
-        headerSize, 0, 0, 0, // Offset to pixel data
-        40, 0, 0, 0, // Size of info header
-        static_cast<uint8_t>(width), static_cast<uint8_t>(width >> 8), static_cast<uint8_t>(width >> 16), static_cast<uint8_t>(width >> 24), // Width
-        static_cast<uint8_t>(height), static_cast<uint8_t>(height >> 8), static_cast<uint8_t>(height >> 16), static_cast<uint8_t>(height >> 24), // Height
-        1, 0, // Color planes
-        24, 0, // Bits per pixel
-        0, 0, 0, 0, // Compression
-        static_cast<uint8_t>(dataSize), static_cast<uint8_t>(dataSize >> 8), static_cast<uint8_t>(dataSize >> 16), static_cast<uint8_t>(dataSize >> 24), // Size of raw bitmap data
-        0, 0, 0, 0, // Horizontal resolution
-        0, 0, 0, 0, // Vertical resolution
-        0, 0, 0, 0, // Number of colors
-        0, 0, 0, 0  // Important colors
+        headerSize, 0, 0, 0, // DIB header size
+        40, 0, 0, 0, // DIB header size
+        static_cast<uint8_t>(frameData.width), static_cast<uint8_t>(frameData.width >> 8),
+        static_cast<uint8_t>(frameData.width >> 16), static_cast<uint8_t>(frameData.width >> 24),
+        static_cast<uint8_t>(frameData.height), static_cast<uint8_t>(frameData.height >> 8),
+        static_cast<uint8_t>(frameData.height >> 16), static_cast<uint8_t>(frameData.height >> 24),
+        1, 0,  // Number of color planes
+        static_cast<uint8_t>(bitsPerPixel), 0, // Bits per pixel
+        0, 0, 0, 0, // Compression (0 = none)
+        static_cast<uint8_t>(dataSize), static_cast<uint8_t>(dataSize >> 8),
+        static_cast<uint8_t>(dataSize >> 16), static_cast<uint8_t>(dataSize >> 24), // Image size
+        0, 0, 0, 0, // Horizontal resolution (pixels per meter, not important)
+        0, 0, 0, 0, // Vertical resolution (pixels per meter, not important)
+        0, 0, 0, 0, // Number of colors in palette (0 = 2^n)
+        0, 0, 0, 0  // Important colors (0 = all)
     };
 
-    // Open the output BMP file
     std::ofstream bmpFile(outputFileName, std::ios::binary);
     if (!bmpFile.is_open()) {
         std::cerr << "Error: Unable to open BMP file " << outputFileName << std::endl;
         return;
     }
 
-    // Write the BMP header
     bmpFile.write(reinterpret_cast<char*>(header), headerSize);
 
-    // Write pixel data
-    for (int y = height - 1; y >= 0; --y) { // BMP stores pixels bottom to top
-        for (int x = 0; x < width; ++x) {
-            // Get the pixel index
-            uint8_t index = frameData[y * width + x];
-
-            // Check if the index is within the bounds of the selected palette
-            if (index < selectedPalette.size()) {
-                // Map the index to the corresponding RGB value using the selected palette
-                Color color = selectedPalette[index];
-                bmpFile.put(color.b); // Blue
-                bmpFile.put(color.g); // Green
-                bmpFile.put(color.r); // Red
+    for (int y = frameData.height - 1; y >= 0; --y) {
+        for (int x = 0; x < frameData.width; ++x) {
+            uint8_t index = frameData.data[y * frameData.width + x];
+            if (index < palette.size()) {
+                Color color = palette[index];
+                // Write in ARGB format
+                bmpFile.put(color.a); // Alpha: 0 (fully transparent) or 255 (fully opaque), modify as necessary
+                bmpFile.put(color.b);
+                bmpFile.put(color.g);
+                bmpFile.put(color.r);
             }
             else {
-                // Handle out-of-bounds index (default to black or any other color)
-                bmpFile.put(0); // Blue
-                bmpFile.put(0); // Green
-                bmpFile.put(0); // Red
+                // Write transparent black for out-of-bounds index
+                bmpFile.put(0); // Alpha
+                bmpFile.put(0);
+                bmpFile.put(0);
+                bmpFile.put(0);
             }
         }
 
-        // Row padding
-        for (int p = 0; p < rowSize - (width * 3); ++p) {
-            bmpFile.put(0); // Pad the row with zeroes
+        // Padding to ensure row size is a multiple of 4
+        for (int p = 0; p < rowSize - (frameData.width * (bitsPerPixel / 8)); ++p) {
+            bmpFile.put(0);
         }
     }
 
     bmpFile.close();
-}
-
-
-namespace fs = std::filesystem;
-ImageConverter::ImageConverter(const std::string& paletteFileName, const std::string& bitmapFileName)
-    : palFileName(paletteFileName), bmpFileName(bitmapFileName) {}
-
-uint16_t readShort(std::ifstream& file) {
-    uint16_t value;
-    file.read(reinterpret_cast<char*>(&value), sizeof(value));
-    return value;
-}
-
-// Helper function to read 32-bit integer (little endian)
-uint32_t readInt(std::ifstream& file) {
-    uint32_t value;
-    file.read(reinterpret_cast<char*>(&value), sizeof(value));
-    return value;
 }
 
 bool ImageConverter::parseSKI(const std::string& skiFileName) {
@@ -160,20 +167,21 @@ bool ImageConverter::parseSKI(const std::string& skiFileName) {
 
     // Loop through each frame
     for (uint32_t frameIndex = 0; frameIndex < numFrames; ++frameIndex) {
+        frameData currentfd;
         size_t actual_pos = frameAddresses[frameIndex] + frameAddresses.size() * 4 + 6;
         skiFile.seekg(actual_pos);  // Seek to the current frame's address
 
-        // Read width and height for this frame
-        uint16_t width, height;
-        skiFile.read(reinterpret_cast<char*>(&width), sizeof(uint16_t));
-        skiFile.read(reinterpret_cast<char*>(&height), sizeof(uint16_t));
+        skiFile.read(reinterpret_cast<char*>(&currentfd.width), sizeof(uint16_t));
+        skiFile.read(reinterpret_cast<char*>(&currentfd.height), sizeof(uint16_t));
+
         uint16_t sth1, sth2;
         skiFile.read(reinterpret_cast<char*>(&sth1), sizeof(uint16_t));
         skiFile.read(reinterpret_cast<char*>(&sth2), sizeof(uint16_t));
         uint32_t flags;
         skiFile.read(reinterpret_cast<char*>(&flags), sizeof(uint32_t));
 
-        uint16_t numPairs = height;  // Number of rows corresponds to height
+        uint16_t numPairs = currentfd.height;  // Number of rows corresponds to height
+        currentfd.data.resize(currentfd.width * currentfd.height);
         std::vector<std::pair<uint32_t, uint32_t>> abPairs;
         if ((flags >> 24) == 2)
             skiFile.seekg(actual_pos + 12);  // Seek to the current frame's address
@@ -194,7 +202,7 @@ bool ImageConverter::parseSKI(const std::string& skiFileName) {
         std::streamoff secondSectionOffset = actual_pos + 12 + static_cast<std::streamoff>(numPairs * 8);
 
         // Resize the output vector to the correct size (width * height)
-        std::vector<uint8_t> frameData(width * height, 0);  // Store frame data
+        std::vector<uint8_t> frameData(currentfd.width * currentfd.height, 0);  // Store frame data
         int current_index = 0;
 
         // Process each (a, b) pair for rows in this frame
@@ -213,7 +221,7 @@ bool ImageConverter::parseSKI(const std::string& skiFileName) {
                 index_start += c;
 
                 // Ensure that the position c is within the bounds of the output vector
-                if (c >= width) {
+                if (c >= currentfd.width) {
                     std::cerr << "Warning: Position c (" << static_cast<int>(c) << ") is out of bounds for the row." << std::endl;
                     break;  // Exit the loop if position is out of bounds
                 }
@@ -226,7 +234,7 @@ bool ImageConverter::parseSKI(const std::string& skiFileName) {
                     // Calculate the index to insert into the frameData vector
                     int outputIndex = index_start + i;
                     if (outputIndex < frameData.size()) {
-                        frameData[outputIndex] = value;  // Store it at the calculated position
+                        currentfd.data[outputIndex] = value;  // Store it at the calculated position
                     }
                 }
 
@@ -234,28 +242,18 @@ bool ImageConverter::parseSKI(const std::string& skiFileName) {
                 index_start += d;  // Move index_start by d bytes
                 remainingB -= 2;  // Decrease remaining by 2 for c and d, and by d for the data bytes
             }
-            current_index += width;  // Move to the next row
+            current_index += currentfd.width;  // Move to the next row
         }
-
+        framesData.push_back(currentfd);
         // Output the frame data as a BMP
-        std::string outputBmpFileName = outputDir.string() + "/frame_" + std::to_string(frameIndex) + ".bmp";
-        createBMP(frameData, outputBmpFileName, width, height); // Create BMP instead of PNG
     }
 
     skiFile.close();
     return true;
 }
 
-// Helper function to strip the extension and get the filename without it
-
-
-// Helper function to extract the filename from a full path
-std::string getFileNameWithoutPath(const std::string& filepath) {
-    std::filesystem::path pathObj(filepath);
-    return pathObj.stem().string(); // Get filename without path and extension
-}
-
-bool ImageConverter::readPalette() {
+//Will read the PAL file
+bool ImageConverter::loadPalettesFromPALfile() {
     std::ifstream palFile(palFileName, std::ios::binary);
     if (!palFile.is_open()) {
         std::cerr << "Error: Unable to open palette file " << palFileName << std::endl;
@@ -282,15 +280,15 @@ bool ImageConverter::readPalette() {
         // Read colors in the current list
         for (uint32_t i = 0; i < colorListSize; ++i) {
             uint8_t a, r, g, b; // Using ARGB format
-            palFile.read(reinterpret_cast<char*>(&r), 1);
-            palFile.read(reinterpret_cast<char*>(&g), 1);
             palFile.read(reinterpret_cast<char*>(&b), 1);
+            palFile.read(reinterpret_cast<char*>(&g), 1);
+            palFile.read(reinterpret_cast<char*>(&r), 1);
             palFile.read(reinterpret_cast<char*>(&a), 1);
 
             // Store the color (ignoring alpha for now)
-            palette.push_back({ r, g, b }); // Store RGB values
+            palette.push_back({ r, g, b, a }); // Store RGB values
         }
-        palettes.push_back(palette); // Add the palette to the collection
+        PALfile.push_back(palette); // Add the palette to the collection
     }
 
     palFile.close();
@@ -303,40 +301,122 @@ bool ImageConverter::convert(const std::string& FileName) {
         std::cerr << "Error: Could not open .256 file " << FileName << std::endl;
         return false;
     }
-
+    frameData currentfd;
     // Read the .256 file header (assuming width and height are stored)
-    inputFile.read(reinterpret_cast<char*>(&width), sizeof(width));
-    inputFile.read(reinterpret_cast<char*>(&height), sizeof(height));
-
+    
+    inputFile.read(reinterpret_cast<char*>(&currentfd.width), sizeof(currentfd.width));
+    inputFile.read(reinterpret_cast<char*>(&currentfd.height), sizeof(currentfd.height));
     // Prepare to read color indices
-    size_t totalPixels = width * height;
-    indices.resize(totalPixels);  // Adjust based on width and height
+    size_t totalPixels = currentfd.width * currentfd.height;
 
     // Read pixel indices from the .256 file
-    inputFile.read(reinterpret_cast<char*>(indices.data()), totalPixels);
+    currentfd.data.resize(totalPixels);
+    inputFile.read(reinterpret_cast<char*>(currentfd.data.data()), totalPixels);
 
-    // Ensure palettes are available (assume readPalette was called earlier)
-    if (palettes.empty()) {
-        std::cerr << "Error: No palettes available. Ensure readPalette() was called before convert()." << std::endl;
-        inputFile.close();
-        return false;
-    }
-
-    // Select an appropriate palette based on the max index in frameData
-    int maxIndex = *std::max_element(indices.begin(), indices.end());
-    int paletteIndex = selectPalette(maxIndex);
-    if (paletteIndex == -1) {
-        std::cerr << "Error: No suitable palette found." << std::endl;
-        inputFile.close();
-        return false;
-    }
-
-    // Generate the output BMP filename in the working directory
-    std::string outputBmpFileName = stripExtension(FileName) + ".bmp"; // Save in current directory
-
-    // Reuse createBMP to generate BMP from the indices
-    createBMP(indices, outputBmpFileName, width, height);
+    framesData.push_back(currentfd);
 
     inputFile.close();
     return true;  // Return true if parsing and conversion is successful
+}
+
+
+void writePaletteAsBMP(const std::vector<Color>& palette, const std::string& outputFileName) {
+    const int width = static_cast<int>(palette.size());
+    const int height = 1;
+
+    // Calculate the row size (each pixel is 4 bytes for ARGB)
+    int rowSize = (width * 4 + 3) & (~3); // Align to the nearest multiple of 4
+    int dataSize = rowSize * height;
+    int fileSize = 54 + dataSize; // 54 bytes for the header
+
+    // BMP header for 32-bit ARGB
+    uint8_t header[54] = {
+        'B', 'M',               // Signature
+        static_cast<uint8_t>(fileSize), static_cast<uint8_t>(fileSize >> 8),
+        static_cast<uint8_t>(fileSize >> 16), static_cast<uint8_t>(fileSize >> 24),
+        0, 0, 0, 0,            // Reserved1 & Reserved2
+        54, 0, 0, 0,          // Offset to start of pixel data
+        40, 0, 0, 0,          // Header size
+        static_cast<uint8_t>(width), static_cast<uint8_t>(width >> 8),
+        static_cast<uint8_t>(width >> 16), static_cast<uint8_t>(width >> 24),
+        static_cast<uint8_t>(height), static_cast<uint8_t>(height >> 8),
+        static_cast<uint8_t>(height >> 16), static_cast<uint8_t>(height >> 24),
+        1, 0,                 // Planes
+        32, 0,                // Bits per pixel (32-bit)
+        0, 0, 0, 0,          // Compression
+        static_cast<uint8_t>(dataSize), static_cast<uint8_t>(dataSize >> 8),
+        static_cast<uint8_t>(dataSize >> 16), static_cast<uint8_t>(dataSize >> 24),
+        0, 0, 0, 0,          // Pixels per meter (not used)
+        0, 0, 0, 0,          // Colors in color table (0 for 32-bit)
+        0, 0, 0, 0           // Important color count (0 means all)
+    };
+
+    // Open BMP file for writing
+    std::ofstream bmpFile(outputFileName, std::ios::binary);
+    if (!bmpFile.is_open()) {
+        std::cerr << "Error: Unable to open BMP file " << outputFileName << std::endl;
+        return;
+    }
+
+    // Write the header
+    bmpFile.write(reinterpret_cast<char*>(header), sizeof(header));
+
+    // Write pixel data
+    for (const auto& color : palette) {
+        // Write the color in ARGB format
+        bmpFile.put(color.a); // Alpha: 255 (fully opaque), change to 0 for fully transparent
+        bmpFile.put(color.b);
+        bmpFile.put(color.g);
+        bmpFile.put(color.r);
+    }
+
+    // Fill the remaining bytes to align to row size
+    for (int p = 0; p < rowSize - (width * 4); ++p) {
+        bmpFile.put(0);
+    }
+
+    // Close the file
+    bmpFile.close();
+}
+
+
+void ImageConverter::dumpAllBMP() {
+    std::filesystem::path outputDir = std::filesystem::current_path() / this->currentFileName;
+
+    // Check if the directory exists, and create it if it doesn't
+    if (!std::filesystem::exists(outputDir)) {
+        std::filesystem::create_directory(outputDir);
+    }
+
+    int frame_data_cnt = 0;
+
+    // Check if there's only one selected palette
+    if (selectedPalettes.size() == 1) {
+        const auto& singlePalette = selectedPalettes[0];
+
+        // Create a BMP file for the palette using the dedicated function
+        std::string paletteOutputName = (outputDir / (currentFileName + "_palette_colors.bmp")).string();
+        writePaletteAsBMP(singlePalette, paletteOutputName);
+    }
+
+    // Existing logic for dumping all BMP frames
+    for (int ip = 0; ip < selectedPalettes.size(); ip++) {
+        if (selectedPalettes.size() == 1) {
+
+            for (auto fd : framesData) {
+                std::string output_name = (outputDir / (currentFileName + "_frame_" + std::to_string(frame_data_cnt) + "_palette_" + std::to_string(ip) + ".bmp")).string();
+                createBMP(fd, output_name, selectedPalettes[ip]); // Assuming createBMP still handles frame data.
+                frame_data_cnt++;
+            }
+
+            
+        }
+        else {
+            std::string output_name = (outputDir / (currentFileName + "_frame_" + std::to_string(frame_data_cnt) + "_palette_" + std::to_string(ip) + ".bmp")).string();
+            createBMP(framesData[0], output_name, selectedPalettes[ip]); // Assuming createBMP still handles frame data.
+
+        
+        }
+        
+    }
 }

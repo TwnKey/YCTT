@@ -1,97 +1,98 @@
 #include <iostream>
-#include <vector>
-#include <fstream>
-#include <algorithm>
-#include <set>
+#include <string>
 #include <filesystem>
 #include "ImageConverter.h"
-namespace fs = std::filesystem;  // Alias for the filesystem namespace
 
-int main(int argc, char* argv[])
-{
-    if (argc == 3) {
-        std::string firstArg = argv[1];
-        std::string secondArg = argv[2];
+namespace fs = std::filesystem;
 
-        // Check if the first argument is a directory
-        if (fs::is_directory(firstArg) && secondArg.substr(secondArg.find_last_of(".") + 1) == "PAL") {
-            // Handle image conversion for all .SKI and .256 files in the directory
-            std::string directoryPath = firstArg;
-            std::string palFilePath = secondArg;
+int main(int argc, char* argv[]) {
+    // Check for the correct number of command line arguments
+    if (argc < 3 || argc > 4) {
+        std::cerr << "Usage: " << argv[0] << " <palette_file> <filename_or_folder> [-allp]" << std::endl;
+        std::cerr << "If the optional '-allp' flag is provided, all palettes will be used for extraction or conversion." << std::endl;
+        return 1;
+    }
 
-            // Iterate over all files in the directory
-            for (const auto& entry : fs::directory_iterator(directoryPath)) {
-                std::string filePath = entry.path().string();
-                std::string extension = entry.path().extension().string();
+    bool useAllPalettes = false; // Flag to indicate whether to use all palettes
+    std::string paletteFileName = argv[2]; // The first argument is the palette file
+    std::string inputPath = argv[1]; // The second argument is the input path (file or folder)
 
-                if (extension == ".SKI" || extension == ".256") {
-                    //std::cout << "Processing: " << filePath << std::endl;
-                    ImageConverter converter(palFilePath, "");  // Initialize with the PAL file for palette data
-                    // First, read the palette
-                    if (!converter.readPalette()) {
-                        std::cerr << "Error: Failed to read the PAL file " << palFilePath << std::endl;
-                        return 1;
-                    }
+    // Check if there's a third argument and if it matches the flag
+    if (argc == 4 && std::string(argv[3]) == "-allp") {
+        useAllPalettes = true; // Set flag to use all palettes
+    }
 
-                    // Now parse the SKI or 256 file based on the extension
-                    if (extension == ".SKI") {
-                        if (!converter.parseSKI(filePath)) {
-                            std::cerr << "Error: Failed to parse SKI file " << filePath << std::endl;
-                            return 1;
-                        }
-                    }
-                    else if (extension == ".256") {
-                        if (!converter.convert(filePath)) {
-                            std::cerr << "Error: Failed to convert 256 file " << filePath << std::endl;
-                            return 1;
-                        }
-                    }
+    ImageConverter converter(paletteFileName); // Initialize the converter with the palette file
 
-                    // Create the PNG based on the output and the palette
-                    if (converter.getPalettes().empty()) {
-                        std::cerr << "Error: No palettes loaded." << std::endl;
-                        return 1;
-                    }
+    if (useAllPalettes) {
+        converter.selectPalette(-1, true);
+    }
+    else {
+    
+    
+    }
+    // Function to process individual files
+    auto processFile = [&](const std::string& fileName) {
+        fs::path filePath(fileName);
+        std::string extension = filePath.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower); // Convert to lowercase
+        converter.currentFileName = filePath.stem().string();
+        
+        // Determine file type based on extension
+        if (extension == ".ski") {
+            std::cout << converter.currentFileName << std::endl;
+           if (converter.parseSKI(fileName)) {
+           }
+           else {
+               std::cerr << "Failed to extract SKI from " << fileName << "." << std::endl;
+           }
 
-                    //std::cout << "Processed file: " << filePath << std::endl;
-                }
-            }
+            
         }
-        // Handle single image conversion for one .256 or .SKI file and one .PAL file
-        else if ((firstArg.substr(firstArg.find_last_of(".")) == ".256" || firstArg.substr(firstArg.find_last_of(".")) == ".SKI") &&
-            secondArg.substr(secondArg.find_last_of(".") + 1) == "PAL") {
-            std::string filePath = firstArg;
-            std::string palFilePath = secondArg;
+        else if (extension == ".256") {
+            std::cout << converter.currentFileName << std::endl;
 
-            ImageConverter converter(palFilePath, filePath);
-            if (!converter.readPalette()) {
-                std::cerr << "Error: Failed to read the PAL file " << palFilePath << std::endl;
-                return 1;
+            if (converter.convert(fileName)) {
             }
-            if (firstArg.substr(firstArg.find_last_of(".")) == ".SKI") {
-                // Handle SKI file
-                
-                if (!converter.parseSKI(filePath)) {
-                    std::cerr << "Error: Failed to parse SKI file " << filePath << std::endl;
-                    return 1;
-                }
+            else {
+                std::cerr << "Failed to convert 256 file from " << fileName << "." << std::endl;
             }
-            else if (firstArg.substr(firstArg.find_last_of(".")) == ".256") {
-                // Handle 256 file
-                if (!converter.convert(filePath)) {
-                    return 1;
-                }
-            }
-
-            std::cout << "PNG file created successfully for: " << filePath << std::endl;
         }
         else {
-            std::cerr << "Error: Invalid arguments provided." << std::endl;
+            std::cerr << "Unsupported file type: " << fileName << ". Only .ski and .256 files are supported." << std::endl;
+        }
+
+        if (!useAllPalettes) {
+            converter.selectPalette(-1, false); // it will select a default palette
+        }
+
+        converter.dumpAllBMP();
+
+
+    };
+
+    // Check if the input path is a directory or a file
+    fs::path inputPathObj(inputPath);
+    if (fs::exists(inputPathObj)) {
+        if (fs::is_directory(inputPathObj)) {
+            for (const auto& entry : fs::directory_iterator(inputPathObj)) {
+                if (entry.is_regular_file()) {
+                    processFile(entry.path().string());
+                }
+            }
+        }
+        else if (fs::is_regular_file(inputPathObj)) {
+            processFile(inputPath);
+        }
+        else {
+            std::cerr << "Invalid input path: " << inputPath << std::endl;
             return 1;
         }
     }
     else {
-        std::cerr << "Error: Expected 2 arguments (file path and palette file)." << std::endl;
+        std::cerr << "Input path does not exist: " << inputPath << std::endl;
         return 1;
     }
+
+    return 0;
 }
