@@ -5,7 +5,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>"C:\Users\Administrator\source\repos\YCTT\YCTT\YsChroniclesTools\ysext\data" "C:\Users\Administrator\source\repos\YCTT\YCTT\YsChroniclesTools\ysext\data\INIT\COLOR.PAL"</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>"C:\Users\Administrator\source\repos\YCTT\YCTT\YsChroniclesTools\ysext\data\INIT\COLOR.PAL" "C:\Users\Administrator\source\repos\YCTT\YCTT\ImageConverter\YS2_TITLE\YS2_TITLE_frame_0_palette_214.bmp" -i256 -p214</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

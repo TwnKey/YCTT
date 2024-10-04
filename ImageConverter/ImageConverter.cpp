@@ -111,14 +111,19 @@ void ImageConverter::createBMP(const frameData& frameData, std::string& outputFi
 
     for (int y = frameData.height - 1; y >= 0; --y) {
         for (int x = 0; x < frameData.width; ++x) {
-            uint8_t index = frameData.data[y * frameData.width + x];
+            int offset = (0x100 - palette.size());
+            int index_file = frameData.data[y * frameData.width + x];
+           
+            uint8_t index = frameData.data[y * frameData.width + x] - offset;
+            
             if (index < palette.size()) {
+                
                 Color color = palette[index];
                 // Write in ARGB format
-                bmpFile.put(color.a); // Alpha: 0 (fully transparent) or 255 (fully opaque), modify as necessary
-                bmpFile.put(color.b);
+                bmpFile.put(color.r); // Alpha: 0 (fully transparent) or 255 (fully opaque), modify as necessary
                 bmpFile.put(color.g);
-                bmpFile.put(color.r);
+                bmpFile.put(color.b);
+                bmpFile.put(color.a);
             }
             else {
                 // Write transparent black for out-of-bounds index
@@ -274,17 +279,17 @@ bool ImageConverter::loadPalettesFromPALfile() {
         if (palFile.eof() || colorListSize == 0) {
             break; // Exit if end of file or size is 0
         }
-
+        
         std::vector<Color> palette; // Temporary palette for current list
 
         // Read colors in the current list
         for (uint32_t i = 0; i < colorListSize; ++i) {
+            
             uint8_t a, r, g, b; // Using ARGB format
-            palFile.read(reinterpret_cast<char*>(&b), 1);
-            palFile.read(reinterpret_cast<char*>(&g), 1);
             palFile.read(reinterpret_cast<char*>(&r), 1);
+            palFile.read(reinterpret_cast<char*>(&g), 1);
+            palFile.read(reinterpret_cast<char*>(&b), 1);
             palFile.read(reinterpret_cast<char*>(&a), 1);
-
             // Store the color (ignoring alpha for now)
             palette.push_back({ r, g, b, a }); // Store RGB values
         }
@@ -314,8 +319,7 @@ bool ImageConverter::convert(const std::string& FileName) {
     inputFile.read(reinterpret_cast<char*>(currentfd.data.data()), totalPixels);
 
     framesData.push_back(currentfd);
-
-    inputFile.close();
+    
     return true;  // Return true if parsing and conversion is successful
 }
 
@@ -401,6 +405,7 @@ void ImageConverter::dumpAllBMP() {
 
     // Existing logic for dumping all BMP frames
     for (int ip = 0; ip < selectedPalettes.size(); ip++) {
+        
         if (selectedPalettes.size() == 1) {
 
             for (auto fd : framesData) {
@@ -409,14 +414,16 @@ void ImageConverter::dumpAllBMP() {
                 frame_data_cnt++;
             }
 
-            
+
         }
         else {
             std::string output_name = (outputDir / (currentFileName + "_frame_" + std::to_string(frame_data_cnt) + "_palette_" + std::to_string(ip) + ".bmp")).string();
             createBMP(framesData[0], output_name, selectedPalettes[ip]); // Assuming createBMP still handles frame data.
 
-        
+
         }
+        
+        
         
     }
 }
