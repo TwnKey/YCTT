@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <filesystem>
-#include <algorithm>
+#include <regex>
 #include "ImageConverter.h"
 
 namespace fs = std::filesystem;
@@ -89,72 +89,115 @@ int main(int argc, char* argv[]) {
         converter.selectPalette(-1, false); // Select default palette
     }
 
-    // Function to process individual files
-    auto processFile = [&](const std::string& fileName) {
+    // Function to process BMP files for insertion
+    auto processInsertFile = [&](const std::string& fileName, const std::string& baseName) {
+        fs::path filePath(fileName);
+        std::string fileNameStr = filePath.filename().string(); // Get only the filename
+        std::string extension = filePath.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower); // Convert to lowercase
+
+        // Regular expression to extract frame and palette numbers from the base filename
+        std::regex bmpRegex(R"((.*)_frame_(\d+)_palette_(\d+)\.bmp)");
+        std::smatch match;
+
+
+        // Check if the filename matches the expected pattern
+        if (std::regex_match(fileNameStr, match, bmpRegex)) {
+            std::string ignore = match[1].str();
+            int frameNumber = std::stoi(match[2].str());
+            int paletteNumber = std::stoi(match[3].str());
+
+            std::cout << "Processing BMP file: " << fileNameStr
+                << " (Base Name: " << baseName
+                << ", Frame: " << frameNumber
+                << ", Palette: " << paletteNumber
+                << ")" << std::endl;
+
+            // Insert BMP file as 256 or SKI format based on the user-specified format
+            if (insertFormat == "256") {
+                std::cout << "Inserting BMP (Frame " << frameNumber
+                    << ") into 256 format." << std::endl;
+                // You would add your insertion code here
+            }
+            else if (insertFormat == "ski") {
+                std::cout << "Inserting BMP (Frame " << frameNumber
+                    << ") into SKI format." << std::endl;
+                // You would add your insertion code here
+            }
+        }
+        else {
+            std::cerr << "Filename format invalid for insertion: " << fileName
+                << ". Expected format: frame_X_palette_Y.bmp" << std::endl;
+        }
+    };
+
+    // Function to process individual files for extraction
+    auto processExtractFile = [&](const std::string& fileName) {
         fs::path filePath(fileName);
         std::string extension = filePath.extension().string();
         std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower); // Convert to lowercase
         converter.currentFileName = filePath.stem().string();
 
-        // For extraction, handle .ski and .256 files
-        if (isExtracting) {
-            if (extension == ".ski") {
-                std::cout << converter.currentFileName << std::endl;
-                if (converter.parseSKI(fileName)) {
-                    std::cout << "Extracted SKI from " << fileName << "." << std::endl;
-                }
-                else {
-                    std::cerr << "Failed to extract SKI from " << fileName << "." << std::endl;
-                }
-            }
-            else if (extension == ".256") {
-                std::cout << converter.currentFileName << std::endl;
-                if (converter.convert(fileName)) {
-                    std::cout << "Converted 256 file from " << fileName << "." << std::endl;
-                }
-                else {
-                    std::cerr << "Failed to convert 256 file from " << fileName << "." << std::endl;
-                }
+        if (extension == ".ski") {
+            std::cout << converter.currentFileName << std::endl;
+            if (converter.parseSKI(fileName)) {
+                std::cout << "Extracted SKI from " << fileName << "." << std::endl;
             }
             else {
-                std::cerr << "Unsupported file type: " << fileName << ". Only .ski and .256 files are supported for extraction." << std::endl;
+                std::cerr << "Failed to extract SKI from " << fileName << "." << std::endl;
             }
-            converter.dumpAllBMP();
         }
-
-        // For insertion, only handle .bmp files
-        else if (isInserting) {
-            if (extension == ".bmp") {
-                std::cout << "Inserting " << fileName << " as " << insertFormat << " format." << std::endl;
-                if (insertFormat == "256") {
-                    // Implement BMP to 256 conversion/insertion logic here
-                    std::cout << "Inserting BMP into 256 format (not yet implemented)." << std::endl;
-                    // You would add your insertion code here
-                }
-                else if (insertFormat == "ski") {
-                    // Implement BMP to SKI conversion/insertion logic here
-                    std::cout << "Inserting BMP into SKI format (not yet implemented)." << std::endl;
-                    // You would add your insertion code here
-                }
+        else if (extension == ".256") {
+            std::cout << converter.currentFileName << std::endl;
+            if (converter.convert(fileName)) {
+                std::cout << "Converted 256 file from " << fileName << "." << std::endl;
             }
             else {
-                std::cerr << "Unsupported file type for insertion: " << fileName << ". Only .bmp files are supported for insertion." << std::endl;
+                std::cerr << "Failed to convert 256 file from " << fileName << "." << std::endl;
             }
         }
+        else {
+            std::cerr << "Unsupported file type: " << fileName << ". Only .ski and .256 files are supported for extraction." << std::endl;
+        }
+        converter.dumpAllBMP();
     };
 
     // Check if the input path is a directory or a file
     fs::path inputPathObj(inputPath);
     if (fs::exists(inputPathObj)) {
         if (fs::is_directory(inputPathObj)) {
-            for (const auto& entry : fs::directory_iterator(inputPathObj)) {
-                if (entry.is_regular_file()) {
-                    processFile(entry.path().string());
+            // Extract the folder name as the base name for insertion
+            std::string baseName = inputPathObj.stem().string();
+
+            if (isExtracting) {
+                // Iterate through files in the folder for extraction
+                for (const auto& entry : fs::directory_iterator(inputPathObj)) {
+                    if (entry.is_regular_file()) {
+                        processExtractFile(entry.path().string());
+                    }
+                }
+            }
+            else if (isInserting) {
+                // Iterate through BMP files in the folder for insertion
+                for (const auto& entry : fs::directory_iterator(inputPathObj)) {
+                    if (entry.is_regular_file()) {
+                        std::string extension = entry.path().extension().string();
+                        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+                        if (extension == ".bmp") {
+                            processInsertFile(entry.path().string(), baseName);
+                        }
+                    }
                 }
             }
         }
         else if (fs::is_regular_file(inputPathObj)) {
-            processFile(inputPath);
+            if (isExtracting) {
+                processExtractFile(inputPath);
+            }
+            else {
+                std::cerr << "For insertion, the input must be a folder containing BMP files." << std::endl;
+                return 1;
+            }
         }
         else {
             std::cerr << "Invalid input path: " << inputPath << std::endl;
