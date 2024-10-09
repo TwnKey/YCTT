@@ -21,3 +21,30 @@ This repository provides a set of tools to translate the Ys Chronicles games, mo
 For Ys II, see the [wiki in english](https://github.com/TwnKey/YCTT/wiki/%5BEN%5D-%E2%80%90-How-to-translate-Ys-II-Chronicles) or [chinese](https://github.com/TwnKey/YCTT/wiki/%5BCN-%7C-%E7%94%B1-ChatGPT-%E7%BF%BB%E8%AF%91%5D-%E5%A6%82%E4%BD%95%E7%BF%BB%E8%AF%91-Ys-II-Chronicles)  
 
 对于Ys II，请参阅[英文维基](https://github.com/TwnKey/YCTT/wiki/%5BEN%5D-%E2%80%90-How-to-translate-Ys-II-Chronicles)或[中文维基](https://github.com/TwnKey/YCTT/wiki/%5BCN-%7C-%E7%94%B1-ChatGPT-%E7%BF%BB%E8%AF%91%5D-%E5%A6%82%E4%BD%95%E7%BF%BB%E8%AF%91-Ys-II-Chronicles)
+
+# ImageConverter
+
+The ImageConverter tool is a new addition to YCTT. It was made to edit the images in the game. However, it is still very experimental and things might not work as expected. The game has two image formats (at least): .256 and .SKI. .256 are simple pictures with no compression (and I believe, no transparency). .SKI files have both transparency and compression.
+
+To extract a .256 file as a .bmp file for editing, run the following command:
+ImageConverter.exe <Path to .PAL file to use (COLOR.PAL or COLORF.PAL are both fine)> <Path to the .256 file> -e -p<PaletteID>
+
+To insert it back into the game:
+ImageConverter.exe <Path to .PAL file to use (COLOR.PAL or COLORF.PAL are both fine)> <Path to the folder containing the previously extracted .BMP> -i256
+
+To extract a .ski file as .bmp files (two for each frame) for editing, run the following command:
+ImageConverter.exe <Path to .PAL file to use (COLOR.PAL or COLORF.PAL are both fine)> <Path to the .SKI file> -e
+
+To insert them back into the game:
+ImageConverter.exe <Path to .PAL file to use (COLOR.PAL or COLORF.PAL are both fine)> <Path to the folder containing the previously extracted .BMP> -iski
+
+The .256 files require to specify the palette ID!!! Otherwise results are very likely to have wrong colors. Unfortunately the palette id used for a specific image is specified in the .exe. You have to manually find it by first extracting your .256 file in all the palettes. To do this run the following command:
+ImageConverter.exe <Path to .PAL file to use (COLOR.PAL or COLORF.PAL are both fine)> <Path to the .256 file> -e -allp
+
+The -allp option will extract one version of the file in the color of each palettes in the .PAL file. Then you have to find the correct colors by matching the file with the picture you know in the game.
+
+Finally, SKI files are made of two layers, which are two bmp, one normal bmp and one "special" (it's in the filename) BMP. This special BMP can only use three colors, red, green, blue, but your pixels can have 16 levels of transparency. The actual color used in the game will likely not be blue, green or red however, those are just to separate between three colors. The normal bmp should only use the colors that are present when first extracting.
+
+Anyway, for SKI files, edit both the special and the normal bmp following the adequate rules.
+
+
