@@ -47,4 +47,5 @@ Finally, SKI files are made of two layers, which are two bmp, one normal bmp and
 
 Anyway, for SKI files, edit both the special and the normal bmp following the adequate rules.
 
+!! Please do note that you should always test editing for a given file first before starting editing the pictures, as the colors, or anything really, could go wrong if untested before, and your editing work could be lost. !!
 
