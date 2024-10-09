@@ -14,10 +14,30 @@ struct frameData {
     int height = 0;
     std::vector<uint8_t> data;
     std::vector<uint8_t> special_pixels;
-
+    int position = 0; // New field to store the frame position
 };
-struct Color {
-    uint8_t r, g, b, a; // RGB color structure
+class Color {
+public:
+    uint8_t r, g, b, a;
+
+    Color(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)
+        : r(red), g(green), b(blue), a(alpha) {}
+
+    // Define the equality operator for the Color class
+    bool operator==(const Color& other) const {
+        return r == other.r && g == other.g && b == other.b && a == other.a;
+    }
+};
+
+// Hash function for Color to use it in unordered_map
+struct ColorHash {
+    std::size_t operator()(const Color& color) const {
+        return std::hash<uint32_t>()(
+            (static_cast<uint32_t>(color.r) << 24) |
+            (static_cast<uint32_t>(color.g) << 16) |
+            (static_cast<uint32_t>(color.b) << 8) |
+            color.a);
+    }
 };
 
 class ImageConverter {
@@ -38,8 +58,10 @@ public:
     void concatenatePalettes(const std::vector<int>& paletteIDs);
     std::string currentFileName;
     std::vector <frameData> framesData;
+    int selectedPalette = -1;
 private:
     std::vector<std::vector<Color>> selectedPalettes;
+    
     std::vector<unsigned int> palettes_id;
     std::vector<uint8_t> indices;
     std::vector<uint8_t> output;

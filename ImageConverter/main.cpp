@@ -131,41 +131,36 @@ int main(int argc, char* argv[]) {
         std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower); // Convert to lowercase
 
         // Regular expression to extract frame and palette numbers from the base filename
-        std::regex bmpRegex(R"((.*)_frame_(\d+)_palette_(\d+)\.bmp)");
+        std::regex bmpRegex(R"(^(.*)_frame_(\d+)_palette_(\d+)_position_(\d+)\.bmp)");
         std::smatch match;
 
         // Check if the filename matches the expected pattern
         if (std::regex_match(fileNameStr, match, bmpRegex)) {
-            std::string ignore = match[1].str();
+            std::string base = match[1].str();
             int frameNumber = std::stoi(match[2].str());
             int paletteNumber = std::stoi(match[3].str());
+            int positionNumber = std::stoi(match[4].str()); // Extract position
+            
 
+            converter.selectPalette(paletteNumber, false);
             std::cout << "Processing BMP file: " << fileNameStr
-                << " (Base Name: " << baseName
+                << " (Base Name: " << base
                 << ", Frame: " << frameNumber
+                << ", Position: " << positionNumber
                 << ", Palette: " << paletteNumber
                 << ")" << std::endl;
-
-            // Deduce the special image path by appending "_special" before the extension
-            std::string specialFileNameStr = filePath.stem().string() + "_special.bmp";
-            fs::path specialFilePath = filePath.parent_path() / specialFileNameStr;
-
-            if (!fs::exists(specialFilePath)) {
-                std::cerr << "Special BMP file not found: " << specialFilePath.string() << std::endl;
-                return;
-            }
-
             // Insert BMP file as 256 or SKI format based on the user-specified format
             if (insertFormat == "256") {
                 std::cout << "Inserting BMP (Frame " << frameNumber
+                    << ", Position " << positionNumber
                     << ") into 256 format." << std::endl;
                 converter.BMPto256(filePath.string());
             }
-            
+            // Add more insertion formats if needed
         }
         else {
             std::cerr << "Filename format invalid for insertion: " << fileName
-                << ". Expected format: frame_X_palette_Y.bmp" << std::endl;
+                << ". Expected format: <base>_frame_<X>_palette_<Y>_position_<Z>.bmp" << std::endl;
         }
     };
     auto processInsertSKIFolder = [&](const std::string& folderPath) {
@@ -181,8 +176,11 @@ int main(int argc, char* argv[]) {
         converter.framesData.clear();
         bool skifile = false;
         if (extension == ".ski") {
+            paletteIDs = { 0xD9, 0x02, 0x01, 0x2A, 0x55 }; // Default palette IDs for SKI
+            std::cout << "No palette IDs provided for SKI extraction/insertion. Defaulting to palettes 0xD9, 0x02, 0x01, 0x2A, 0x55." << std::endl;
+            converter.concatenatePalettes(paletteIDs); // Use default palettes for SKI
+
             skifile = true;
-            std::cout << converter.currentFileName << std::endl;
             if (converter.parseSKI(fileName)) {
                 std::cout << "Extracted SKI from " << fileName << "." << std::endl;
             }

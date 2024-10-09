@@ -5,7 +5,9 @@
 #include <filesystem>
 #include <iostream>
 #include <fstream>
+#include <regex>
 #include <filesystem>
+#include <unordered_map>
 namespace fs = std::filesystem;
 // Constructor implementation
 ImageConverter::ImageConverter(const std::string& paletteFileName, const std::string& bitmapFileName)
@@ -48,15 +50,20 @@ int ImageConverter::selectPalette(int index, bool allP) {
             int maxIndex = 0;
             for (int i = 0; i < PALfile.size(); ++i) {
                 if (PALfile[i].size() > maxIndex) {
-                    maxIndex = PALfile[i].size();
-                    if (selectedPalettes.empty()) {
-                        selectedPalettes.push_back(PALfile[i]); 
-                        palettes_id.push_back(i);
+                    if (PALfile[i].size() <= 0x100) {
+                        maxIndex = PALfile[i].size();
+                        if (selectedPalettes.empty()) {
+                            selectedPalettes.push_back(PALfile[i]);
+                            palettes_id.push_back(i);
+                            selectedPalette = i;
+                        }
+                        else {
+                            selectedPalettes[0] = PALfile[i];
+                            palettes_id[0] = i;
+                            selectedPalette = i;
+                        }
                     }
-                    else {
-                        selectedPalettes[0] = PALfile[i];
-                        palettes_id[0] = i;
-                    }
+                    
                 }
             }
         
@@ -64,6 +71,7 @@ int ImageConverter::selectPalette(int index, bool allP) {
         else {
             selectedPalettes.push_back(PALfile[index]);
             palettes_id.push_back(index);
+            selectedPalette = index;
         }
     
     }
@@ -183,13 +191,13 @@ void ImageConverter::createBMP(const frameData& frameData, std::string& outputFi
     bmpFile.write(reinterpret_cast<char*>(dibHeader), dibHeaderSize);
     for (int y = frameData.height - 1; y >= 0; --y) {
         for (int x = 0; x < frameData.width; ++x) {
-            int offset = (0x100 - palette.size());
+            int offset = 0x32;
             int index_file = frameData.data[y * frameData.width + x];
             uint8_t index;
             if (skifile)
                 index = frameData.data[y * frameData.width + x];
             else
-                index = frameData.data[y * frameData.width + x] + offset;
+                index = frameData.data[y * frameData.width + x] - offset;
             if (index < palette.size()) {
                 Color color = palette[index];
                 // Write in ARGB format
@@ -304,6 +312,7 @@ bool ImageConverter::parseSKI(const std::string& skiFileName) {
 
         uint16_t sth1, sth2;
         skiFile.read(reinterpret_cast<char*>(&sth1), sizeof(uint16_t));
+        currentfd.position = sth1;
         skiFile.read(reinterpret_cast<char*>(&sth2), sizeof(uint16_t));
         uint32_t flags;
         skiFile.read(reinterpret_cast<char*>(&flags), sizeof(uint32_t));
@@ -541,7 +550,7 @@ void ImageConverter::dumpAllBMP(bool skifile) {
         if (selectedPalettes.size() == 1) {
 
             for (auto fd : framesData) {
-                std::string output_name = (outputDir / (currentFileName + "_frame_" + std::to_string(frame_data_cnt) + "_palette_" + std::to_string(ip) + ".bmp")).string();
+                std::string output_name = (outputDir / (currentFileName + "_frame_" + std::to_string(frame_data_cnt) + "_palette_" + std::to_string(selectedPalette) + "_position_" + std::to_string(fd.position) + ".bmp")).string();
                 createBMP(fd, output_name, selectedPalettes[ip], skifile); // Assuming createBMP still handles frame data.
                 frame_data_cnt++;
             }
@@ -549,7 +558,7 @@ void ImageConverter::dumpAllBMP(bool skifile) {
 
         }
         else {
-            std::string output_name = (outputDir / (currentFileName + "_frame_" + std::to_string(frame_data_cnt) + "_palette_" + std::to_string(ip) + ".bmp")).string();
+            std::string output_name = (outputDir / (currentFileName + "_frame_" + std::to_string(frame_data_cnt) + "_palette_" + std::to_string(ip) + "_position_" + std::to_string(framesData[0].position) + ".bmp")).string();
             createBMP(framesData[0], output_name, selectedPalettes[ip],skifile); // Assuming createBMP still handles frame data.
 
 
@@ -560,7 +569,6 @@ void ImageConverter::dumpAllBMP(bool skifile) {
     }
 }
 
-const int BMP_HEADER_SIZE = 54; // BMP file header is 54 bytes
 
 // Helper function to read a 4-byte integer from a binary stream
 uint32_t readUint32(std::ifstream& stream) {
@@ -600,16 +608,19 @@ int findClosestPaletteIndex(const Color& bmpColor, const std::vector<Color>& sel
 
     return closestIndex;
 }
-void ImageConverter::BMPto256(std::string BMPfile) {
 
-    for (auto p : selectedPalettes) {
+
+void ImageConverter::BMPto256(std::string BMPfile) {
+    unsigned int bmp_header_size = 0;
+    for (auto& p : selectedPalettes) {
         std::ifstream bmpStream(BMPfile, std::ios::binary);
 
         if (!bmpStream.is_open()) {
             std::cerr << "Failed to open BMP file: " << BMPfile << std::endl;
             return;
         }
-
+        bmpStream.seekg(0x0A, std::ios::beg);
+        bmp_header_size = readUint32(bmpStream);
         // Skip to the width and height of the BMP file (located at offset 18 and 22 respectively)
         bmpStream.seekg(18, std::ios::beg);
 
@@ -624,7 +635,7 @@ void ImageConverter::BMPto256(std::string BMPfile) {
         bool hasAlpha = (bitsPerPixel == 32);  // BMP is 32-bit if it has an alpha channel
 
         // Skip the rest of the BMP header to reach pixel data (54 bytes for BMP header)
-        bmpStream.seekg(BMP_HEADER_SIZE, std::ios::beg);
+        bmpStream.seekg(bmp_header_size, std::ios::beg);
 
         // The BMP data is typically stored in rows that are padded to 4-byte boundaries (for RGB, BGR, or RGBA)
         int bytesPerPixel = hasAlpha ? 4 : 3;  // 4 bytes per pixel for RGBA, 3 bytes for RGB
@@ -649,9 +660,12 @@ void ImageConverter::BMPto256(std::string BMPfile) {
         out256.put(static_cast<uint8_t>((height >> 16) & 0xFF));
         out256.put(static_cast<uint8_t>((height >> 24) & 0xFF));
 
+        // Create a map to cache unique BMP colors and their corresponding closest palette index
+        std::unordered_map<Color, uint8_t, ColorHash> colorToPaletteMap;
+
         // Process BMP pixel data, reading from the last row (bottom) to the first row (top)
         for (int row = height - 1; row >= 0; --row) {  // Start from the last row
-            bmpStream.seekg(BMP_HEADER_SIZE + (row * (width * bytesPerPixel + rowPadding)), std::ios::beg);
+            bmpStream.seekg(bmp_header_size + (row * (width * bytesPerPixel + rowPadding)), std::ios::beg);
 
             for (int col = 0; col < width; ++col) {
                 // Read BMP pixel data (BGR or BGRA)
@@ -666,12 +680,18 @@ void ImageConverter::BMPto256(std::string BMPfile) {
 
                 Color bmpColor(r, g, b, a);
 
-                // Find the closest palette index for the current BMP pixel
-                int closestIndex = findClosestPaletteIndex(bmpColor, p);
+                // Check if the color has already been mapped to a palette index
+                if (colorToPaletteMap.find(bmpColor) == colorToPaletteMap.end()) {
+                    // If not in the map, find the closest palette index for the current BMP pixel
+                    int closestIndex = findClosestPaletteIndex(bmpColor, p);
 
-                // Write the closest palette index with offset to the .256 file
-                uint8_t finalIndex = static_cast<uint8_t>(closestIndex + (0x100 - p.size()));
-                out256.put(finalIndex);
+                    // Store the result in the map for future reference
+                    uint8_t finalIndex = static_cast<uint8_t>(closestIndex + 0x32);
+                    colorToPaletteMap[bmpColor] = finalIndex;
+                }
+
+                // Write the cached palette index for the current color to the .256 file
+                out256.put(colorToPaletteMap[bmpColor]);
             }
         }
 
@@ -682,6 +702,7 @@ void ImageConverter::BMPto256(std::string BMPfile) {
         std::cout << "Converted " << BMPfile << " to " << outputFileName << " using selected palette." << std::endl;
     }
 }
+
 // Process the special BMP pixel
 uint8_t processSpecialPixel(const Color& pixel) {
     uint8_t transparency = static_cast<uint8_t>((pixel.a / 255.0f) * 15); // Transparency level (0 to 15)
@@ -709,6 +730,24 @@ uint8_t processSpecialPixel(const Color& pixel) {
     }
 }
 void ImageConverter::insertBMPPairIntoSKI(const std::string& normalBMPPath, const std::string& specialBMPPath) {
+    // Extract position from the normal BMP filename
+    std::regex bmpRegex(R"(.*_position_(\d+)\.bmp)");
+    std::smatch match;
+    int position = -1;
+
+    // Try to match the position from the normalBMPPath filename
+    fs::path normalPath(normalBMPPath);
+    std::string normalFileName = normalPath.filename().string();
+
+    if (std::regex_search(normalFileName, match, bmpRegex)) {
+        position = std::stoi(match[1].str());
+        std::cout << "Extracted position: " << position << " from " << normalFileName << std::endl;
+    }
+    else {
+        std::cerr << "Error: Position not found in filename: " << normalFileName << std::endl;
+        return;
+    }
+
     // Open the normal BMP file
     std::ifstream normalStream(normalBMPPath, std::ios::binary);
     if (!normalStream.is_open()) {
@@ -770,17 +809,18 @@ void ImageConverter::insertBMPPairIntoSKI(const std::string& normalBMPPath, cons
     frameData mergedImage;
     mergedImage.width = width;
     mergedImage.height = height;
+    mergedImage.position = position; // Store the extracted position
     mergedImage.data = std::vector<uint8_t>(width * height, 0);
-    
+
     // Process pixel data row by row (from bottom to top for BMP format)
     for (int row = height - 1; row >= 0; --row) {
-        
+
         unsigned int normal_index = offset_start_data + (row * (width * bytesPerPixelNormal + rowPaddingNormal));
         unsigned int special_index = offset_start_data_special + (row * (width * bytesPerPixelSpecial + rowPaddingSpecial));
 
         normalStream.seekg(normal_index, std::ios::beg);
         specialStream.seekg(special_index, std::ios::beg);
-        //std::cout << std::hex << " starting normal at " << normal_index << " " << special_index << std::endl;
+
         for (int col = 0; col < width; ++col) {
             // Normal image pixel (read RGB or RGBA)
             uint8_t rNormal, gNormal, bNormal, aNormal = 255;
@@ -800,7 +840,7 @@ void ImageConverter::insertBMPPairIntoSKI(const std::string& normalBMPPath, cons
             if (specialHasAlpha) {
                 specialStream.read(reinterpret_cast<char*>(&aSpecial), 1);
             }
-            
+
             Color specialPixel(rSpecial, gSpecial, bSpecial, aSpecial);
 
             // Convert normal pixel to palette index
@@ -852,7 +892,7 @@ void ImageConverter::repackIntoSKI(const std::string& outputSKIPath) {
         // Write frame header: {0, width, height, 0, 0, 0, 0}
         uint32_t zero32 = 0;
         uint16_t zero16 = 0x0;
-        uint16_t position = 0; // ¨¤ r¨¦cup depuis le nom du fichier, ne pas oublier!!!
+        uint16_t position = frame.position; 
         skiFile.write(reinterpret_cast<char*>(&zero32), sizeof(uint32_t));  // 32-bit 0
         skiFile.write(reinterpret_cast<char*>(&width), sizeof(uint16_t));   // width
         skiFile.write(reinterpret_cast<char*>(&height), sizeof(uint16_t));  // height
@@ -1026,9 +1066,6 @@ void ImageConverter::repackIntoSKI(const std::string& outputSKIPath) {
     skiFile.close();
     std::cout << "Successfully repacked into SKI file: " << outputSKIPath << std::endl;
 }
-
-
-
 
 void ImageConverter::BMPtoSKI(const std::string& folderPath) {
     fs::path folder(folderPath);
