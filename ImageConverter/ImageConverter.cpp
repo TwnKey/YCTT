@@ -695,8 +695,18 @@ uint8_t processSpecialPixel(const Color& pixel) {
     else if (pixel.b > 0 && pixel.r == 0 && pixel.g == 0) {
         return 0x20 + transparency; // Blue channel
     }
-
-    return 0xFF; // Fully transparent, no overlay
+    else if (transparency == 0)
+        return 0x00; // Fully transparent, no overlay
+    else {
+        if (pixel.r > pixel.g && pixel.r > pixel.b)
+            return 0x00 + transparency; // Red channel
+        else if (pixel.g > pixel.r && pixel.g > pixel.b)
+            return 0x10 + transparency; // Red channel
+        else if (pixel.b > pixel.r && pixel.b > pixel.g)
+            return 0x20 + transparency; // Red channel
+        else 
+            return 0x00;
+    }
 }
 void ImageConverter::insertBMPPairIntoSKI(const std::string& normalBMPPath, const std::string& specialBMPPath) {
     // Open the normal BMP file
@@ -740,9 +750,16 @@ void ImageConverter::insertBMPPairIntoSKI(const std::string& normalBMPPath, cons
     specialStream.read(reinterpret_cast<char*>(&bitsPerPixelSpecial), sizeof(bitsPerPixelSpecial));
     bool specialHasAlpha = (bitsPerPixelSpecial == 32);
 
-    // Skip to pixel data for both BMPs (54 bytes BMP header)
-    normalStream.seekg(54, std::ios::beg);
-    specialStream.seekg(54, std::ios::beg);
+    // Skip to pixel data for both BMPs
+    normalStream.seekg(0xA, std::ios::beg);
+    specialStream.seekg(0xA, std::ios::beg);
+    unsigned int offset_start_data;
+    unsigned int offset_start_data_special;
+    normalStream.read(reinterpret_cast<char*>(&offset_start_data), sizeof(offset_start_data));
+    specialStream.read(reinterpret_cast<char*>(&offset_start_data_special), sizeof(offset_start_data_special));
+
+    normalStream.seekg(offset_start_data, std::ios::beg);
+    specialStream.seekg(offset_start_data_special, std::ios::beg);
 
     int bytesPerPixelNormal = normalHasAlpha ? 4 : 3; // 4 bytes per pixel for RGBA, 3 for RGB
     int bytesPerPixelSpecial = specialHasAlpha ? 4 : 3;
@@ -754,11 +771,12 @@ void ImageConverter::insertBMPPairIntoSKI(const std::string& normalBMPPath, cons
     mergedImage.width = width;
     mergedImage.height = height;
     mergedImage.data = std::vector<uint8_t>(width * height, 0);
-
+    
     // Process pixel data row by row (from bottom to top for BMP format)
     for (int row = height - 1; row >= 0; --row) {
-        unsigned int normal_index = 54 + (row * (width * bytesPerPixelNormal + rowPaddingNormal));
-        unsigned int special_index = 54 + (row * (width * bytesPerPixelSpecial + rowPaddingSpecial));
+        
+        unsigned int normal_index = offset_start_data + (row * (width * bytesPerPixelNormal + rowPaddingNormal));
+        unsigned int special_index = offset_start_data_special + (row * (width * bytesPerPixelSpecial + rowPaddingSpecial));
 
         normalStream.seekg(normal_index, std::ios::beg);
         specialStream.seekg(special_index, std::ios::beg);
@@ -782,6 +800,7 @@ void ImageConverter::insertBMPPairIntoSKI(const std::string& normalBMPPath, cons
             if (specialHasAlpha) {
                 specialStream.read(reinterpret_cast<char*>(&aSpecial), 1);
             }
+            
             Color specialPixel(rSpecial, gSpecial, bSpecial, aSpecial);
 
             // Convert normal pixel to palette index
@@ -790,7 +809,7 @@ void ImageConverter::insertBMPPairIntoSKI(const std::string& normalBMPPath, cons
 
             // Overlay special image pixel if applicable
             uint8_t specialValue = processSpecialPixel(specialPixel);
-            if (specialValue != 0xFF) {
+            if ((specialValue & 0x0F) != 0) {
                 mergedImage.data[row * width + col] = specialValue;
             }
         }
@@ -832,11 +851,12 @@ void ImageConverter::repackIntoSKI(const std::string& outputSKIPath) {
 
         // Write frame header: {0, width, height, 0, 0, 0, 0}
         uint32_t zero32 = 0;
-        uint16_t zero16 = 0;
+        uint16_t zero16 = 0x0;
+        uint16_t position = 0; // ¨¤ r¨¦cup depuis le nom du fichier, ne pas oublier!!!
         skiFile.write(reinterpret_cast<char*>(&zero32), sizeof(uint32_t));  // 32-bit 0
         skiFile.write(reinterpret_cast<char*>(&width), sizeof(uint16_t));   // width
         skiFile.write(reinterpret_cast<char*>(&height), sizeof(uint16_t));  // height
-        skiFile.write(reinterpret_cast<char*>(&zero16), sizeof(uint16_t));  // 16-bit 0
+        skiFile.write(reinterpret_cast<char*>(&position), sizeof(uint16_t));  // 16-bit 0
         for (int i = 0; i < 2; ++i) {
             skiFile.write(reinterpret_cast<char*>(&zero16), sizeof(uint16_t));  // 2 zeros
         }
@@ -856,42 +876,66 @@ void ImageConverter::repackIntoSKI(const std::string& outputSKIPath) {
         std::streamoff rowDataOffset = skiFile.tellp();
         for (int row = 0; row < height; ++row) {
             std::streamoff rowStartPos = skiFile.tellp(); // Mark the start of the compressed row
-
+            rowIndexArray[row].second = 0;
             bool rowIsEmpty = true;  // Track if the row is full of zeros
             int col = 0;
             unsigned int zeros = 0;
             uint32_t compressedSize = 0;
+            int startColumn = 0;
             while (col < width) {
                 // Find the next pack of non-zero pixels
-                
-                while (col < width && frame.data[row * width + col] == 0) {
+                size_t nb_zeros = 0;
+                while (col < width && frame.data[(height - 1 - row) * width + col] == 0) {
                     ++col;  // Skip zero pixels
+                    nb_zeros++;
                 }
 
                 if (col >= width) {
                     // No more non-zero pixels in this row
                     break;
                 }
+                else {
+                    unsigned int remaining_nb_zeros = nb_zeros;
+                    while (remaining_nb_zeros > 0xFF) {
+                        size_t nb_ff_in_width = (int)(width / 0xFF);
+                        size_t remaining = width % 0xFF;
+                        skiFile.put(0xFF);
+                        skiFile.put(0x00);
+                        remaining_nb_zeros -= 0xFF;
+                        rowIndexArray[row].second += 2;
+                        if (rowIndexArray[row].first == -1) {
+                            rowIndexArray[row].first = addr_compressed_row;
+                            rowIndexArray[row].second = 2;
+                        }
+                        else {
+                            // Accumulate the total size if there are multiple packs
+                            rowIndexArray[row].second += 2;
+                        }
+                        addr_compressed_row += compressedSize + 2;
+                    }
+                    startColumn += remaining_nb_zeros;
+                
+                }
 
                 rowIsEmpty = false;  // This row contains non-zero data
 
                 // Start of a new non-zero pack
-                int startColumn = col;
+                
                 std::vector<uint8_t> compressedRowData;
                 unsigned int remaining_bytes = 0;
                 // Count non-zero pixels and collect the data
-                while (col < width && frame.data[row * width + col] != 0) {
-                    compressedRowData.push_back(frame.data[row * width + col]);
+                while (col < width && frame.data[(height - 1 - row) * width + col] != 0) {
+                    compressedRowData.push_back(frame.data[(height - 1 - row) * width + col]);
                     ++col;
                     remaining_bytes++;
-                    if (col == 0x100) {
+                    if (compressedRowData.size() == 0xFF) {
                         remaining_bytes -= 0xFF;
                         int pixelCount = static_cast<int>(compressedRowData.size());
                         // Write the compressed row data for this pack
                         skiFile.put(static_cast<uint8_t>(startColumn));  // Starting column
                         skiFile.put(static_cast<uint8_t>(pixelCount));   // Number of non-zero pixels
+                        startColumn = 0;
                         skiFile.write(reinterpret_cast<char*>(compressedRowData.data()), pixelCount);
-
                         // The offset and size for this pack
                         std::streamoff currentPos = skiFile.tellp();
                         uint32_t rowOffset = static_cast<uint32_t>(currentPos - rowStartPos);  // Offset from the start of this row's data
@@ -900,11 +944,11 @@ void ImageConverter::repackIntoSKI(const std::string& outputSKIPath) {
                         // If it's the first pack in this row, initialize rowIndexArray[row] with this info
                         if (rowIndexArray[row].first == -1) {
                             rowIndexArray[row].first = addr_compressed_row;
-                            rowIndexArray[row].second = compressedSize;
+                            rowIndexArray[row].second = 2;
                         }
                         else {
                             // Accumulate the total size if there are multiple packs
-                            rowIndexArray[row].second += compressedSize;
+                            rowIndexArray[row].second += 2;
                         }
                         addr_compressed_row += compressedSize + 2;
                         compressedRowData.clear();
@@ -918,21 +962,22 @@ void ImageConverter::repackIntoSKI(const std::string& outputSKIPath) {
                 // Write the compressed row data for this pack
                 skiFile.put(static_cast<uint8_t>(startColumn));  // Starting column
                 skiFile.put(static_cast<uint8_t>(pixelCount));   // Number of non-zero pixels
+                startColumn = 0;
+                //startColumn += compressedRowData.size();
                 skiFile.write(reinterpret_cast<char*>(compressedRowData.data()), pixelCount);
 
                 // The offset and size for this pack
                 std::streamoff currentPos = skiFile.tellp();
-                uint32_t rowOffset = static_cast<uint32_t>(currentPos - rowStartPos);  // Offset from the start of this row's data
-                compressedSize = static_cast<uint32_t>(pixelCount);  // Include 2 bytes for start column and count
+                compressedSize = static_cast<uint32_t>(pixelCount); 
 
                 // If it's the first pack in this row, initialize rowIndexArray[row] with this info
                 if (rowIndexArray[row].first == -1) {
                     rowIndexArray[row].first = addr_compressed_row;
-                    rowIndexArray[row].second = compressedSize;
+                    rowIndexArray[row].second = 2;
                 }
                 else {
                     // Accumulate the total size if there are multiple packs
-                    rowIndexArray[row].second += compressedSize;
+                    rowIndexArray[row].second += 2;
                 }
                 addr_compressed_row += compressedSize + 2;
             }
@@ -944,19 +989,22 @@ void ImageConverter::repackIntoSKI(const std::string& outputSKIPath) {
                 for (int i = 0; i < nb_ff_in_width; i++) {
                     skiFile.put(0xFF);
                     skiFile.put(0x00);
+                    rowIndexArray[row].second+=2;
                     compressedSize += 2;
                 }
                 skiFile.put(remaining);  // 0xFF indicates a full zero row
                 compressedSize++;
                 // Record the offset and size for this empty row
-                  // Only 2 bytes for 0xFF 0x00
 
                 rowIndexArray[row].first = addr_compressed_row;  // Save the offset for this row
-                rowIndexArray[row].second = compressedSize;      // The size is 2 bytes
+                
                 addr_compressed_row += compressedSize;
             }
-        }
+            rowIndexArray[row].second++;
 
+            
+        }
+        
         // Write the row index array
         std::streamoff endOfRowData = skiFile.tellp();
         skiFile.seekp(rowIndexOffset);  // Move to the reserved space for the row index array
@@ -965,6 +1013,10 @@ void ImageConverter::repackIntoSKI(const std::string& outputSKIPath) {
             skiFile.write(reinterpret_cast<const char*>(&rowPair.second), sizeof(uint32_t)); // Total compressed size
         }
         skiFile.seekp(endOfRowData);  // Return to the end of the row data section
+        unsigned int padding = skiFile.tellp() % 4;
+        for (int i = 0; i < padding; i++) {
+            skiFile.put(0xcc);
+        }
     }
 
     // Go back and write the frame addresses relative to the end of the address table
