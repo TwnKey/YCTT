@@ -437,7 +437,7 @@ std::vector<unsigned char> create_bitmap(FT_Bitmap*  bitmap,
 
 			if (!(i >= col_number_in_bitmap) )
 			{
-				if (j < max_dim) {
+				if (j < lowest_y) {
 					image[j][i] = (((bitmap->buffer[j * col_number_in_bitmap + i]) & 0xF0) >> 4);
 				}
 			}
@@ -450,7 +450,11 @@ std::vector<unsigned char> create_bitmap(FT_Bitmap*  bitmap,
 		for (int i = 0; i < max_dim; i++) {
 			if (!(i >= col_number_in_bitmap))
 			{
-				if (j >= 0 && j < max_dim) {
+				// Only read from the FreeType bitmap buffer while j is an actual row
+				// of the bitmap (0 .. bitmap->rows-1). For short glyphs such as '一'
+				// (bitmap_top > bitmap->rows) the old bound "j < max_dim" read past
+				// the end of the buffer and painted garbage pixels below the glyph.
+				if (j >= 0 && j < lowest_y) {
 					image[j][i] = (((bitmap->buffer[j * col_number_in_bitmap + i]) & 0xF0) >> 4);
 				}
 			}
